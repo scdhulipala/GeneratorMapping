@@ -20,12 +20,13 @@ from geopy import distance, Point
 import numpy as np
 
 # Quan (PNNL)
-import os, sys
-import shutil
-import scipy, math, timeit
+#import os, sys
+#import shutil
+import scipy
+# import  math, timeit
 import win32com.client
 
-import re
+#import re
 
 from fuzzywuzzy import fuzz
 
@@ -87,15 +88,12 @@ def Convert_String_to_List(a_string, a_type):
     return ans
 
 
-
-
-
 def match_plant_name(an_EIA_plant, a_PCM_plant_name):
     EIA_sub_string_list     = an_EIA_plant.replace('_',' ').split(' ')
     PCM_sub_string_list     = a_PCM_plant_name.replace('_',' ').split(' ')
     common_sub_string_list  = list(set(EIA_sub_string_list).intersection(PCM_sub_string_list))
     if len(common_sub_string_list) >= 2:
-        print an_EIA_plant + ' in EIA is mapped to ' + a_PCM_plant_name + ' in PCM' 
+        print (an_EIA_plant + ' in EIA is mapped to ' + a_PCM_plant_name + ' in PCM')
         return True
     else:
         return False
@@ -106,8 +104,8 @@ def fuzzy_match_plant_name(an_EIA_plant, a_PCM_plant_name):
     Ratio = fuzz.ratio(an_EIA_plant.lower(),a_PCM_plant_name.lower())
     
     if Ratio > 60:   
-        print '\n'+ an_EIA_plant + ' in EIA is FUZZY mapped to ' + a_PCM_plant_name + ' in PCM' 
-        print 'String Match Ratio: ' + str(Ratio)
+        print ('\n'+ an_EIA_plant + ' in EIA is FUZZY mapped to ' + a_PCM_plant_name + ' in PCM')
+        print('String Match Ratio %f' %(Ratio))
         return True
     else:
         return False
@@ -117,20 +115,20 @@ def fuzzy_match_plant_name(an_EIA_plant, a_PCM_plant_name):
 # INPUT - Quan (PNNL)
 # =============================================================================
 # PCM data
-PCM_file                = '2030_Summary_by_BA.xlsx'
-BA_name                 = 'PNM'
+PCM_file                = 'Data/2030_Summary_by_BA.xlsx'
+BA_name                 = 'AVA'
 
 # Power flow case
-PF_file                 = r'\WECC Apr 2019_20HS3ap-PWver21.pwb'
+PF_file                 = 'Data/WECC Apr 2019_20HS3ap-PWver21.pwb'
 
 # Mapping parameters
 Pmax_per_tol            = 10 # %
 
 
-Location_1 = 'EIA860-2019ER-April2020-SolarPV-List-Updated.xlsx' 
-Location_2 = 'Energy-Visuals-SS-Data.xlsx'
-Location_3 = Location +'Energy-Visuals-Bus-Data.xlsx'
-Location_4 = Location +'Energy-Visuals-Gen-Data.xlsx'
+Location_1 = 'Data/EIA860-2019ER-April2020-SolarPV-List-Updated.xlsx' 
+Location_2 = 'Data/Energy-Visuals-SS-Data.xlsx'
+Location_3 =  'Data/Energy-Visuals-Bus-Data.xlsx'
+Location_4 = 'Data/Energy-Visuals-Gen-Data.xlsx'
 
 # Reading the Excel Files
 
@@ -197,7 +195,7 @@ for idx in df_pv_plants.index:
     df_pv_plants.at[idx,'SS Gen ID'] = gen_ids   
     df_pv_plants.at[idx,'SS Gen Cap'] = gen_caps
     
-    df_pv_plants.at[idx,'Other Close SS'] = df_ss['Sub Num'].loc[ss_idxs[1:5]].values
+    df_pv_plants.at[idx,'Other Close SS'] = df_ss_data['Sub Num'].loc[ss_idxs[1:5]].values
     df_pv_plants.at[idx,'Other Close SS Distance'] = np.array(gen_bus_distance)[sort_idx[1:5]]
     
     bus_nums_all = []
@@ -248,9 +246,9 @@ nearby_mapping_gen_Pmax     = df_pv_plants['Other Gen Caps'].to_list()
 if (pw_flag):
     """ Read info from PW power planning case """
     simauto_obj                 = win32com.client.Dispatch("pwrworld.SimulatorAuto")
-    simauto_output              = simauto_obj.OpenCase(PF_case_path + PF_file)
+    simauto_output              = simauto_obj.OpenCase(PF_file)
     if simauto_output[0] == '':
-        print 'SUCCESSFUL OPEN THE PW PLANNING CASE'
+        print ('SUCCESSFUL OPEN THE PW PLANNING CASE')
     
     # Read the generator information from the power flow case
     object_type                 = 'Gen' #ObjectType
@@ -258,7 +256,7 @@ if (pw_flag):
     filter_name                 = '' # FilterName of all elements
     simauto_output              = simauto_obj.GetParametersMultipleElement(object_type, param_list, filter_name)
     if simauto_output[0] == '':
-        print 'SUCCESSFUL READ GENERATOR DATA'
+        print ('SUCCESSFUL READ GENERATOR DATA')
         
     PF_case_gen_bus_num         = []
     PF_case_gen_ID_num          = []
@@ -275,9 +273,9 @@ if (pw_flag):
 
 
 """ Mapping directly between NREL data and the power flow case """
-print '\n ------------- Start mapping ----------- \n'
+print ('\n ------------- Start mapping ----------- \n')
 
-print ' STEP 1: MAP USING THE NREL MAP AND PLANNING CASE USING EXACT LOCATION'
+print (' STEP 1: MAP USING THE NREL MAP AND PLANNING CASE USING EXACT LOCATION')
 mapping_stt                 = {}
 map_PF_gen_bus_num_list     = {}
 map_PF_gen_ID_list          = {}
@@ -286,7 +284,7 @@ min_Pmax_diff               = {}
 
 # Map using the perfect location mapping
 for EIA_index in range(len(EIA_plant_names)):
-    print 'Processing EIA plant ' + str(EIA_index+1)
+    print ('Processing EIA plant ' + str(EIA_index+1))
     an_EIA_plant            = EIA_plant_names[EIA_index]
     an_EIA_ID               = EIA_plant_ID[EIA_index]
     an_EIA_Pmax             = EIA_plant_Pmax[EIA_index]
@@ -307,7 +305,7 @@ for EIA_index in range(len(EIA_plant_names)):
                 PF_gen_ID       = PF_gen_ID_list[gen_idx]
                 PF_gen_Pmax     = PF_gen_Pmax_list[gen_idx]
                 if abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
-                    print '------ Find a good ONE-TO_ONE match with generators at same location for EIA plant ' + str(EIA_index+1) 
+                    print ('------ Find a good ONE-TO_ONE match with generators at same location for EIA plant ' + str(EIA_index+1) )
                     min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100
                     mapping_stt[an_EIA_ID] = 'Good one-to-one match with generators at same location'
                     map_PF_gen_bus_num_list[an_EIA_ID] = [PF_gen_bus_num]
@@ -316,24 +314,24 @@ for EIA_index in range(len(EIA_plant_names)):
             
             # Approach 2: Consider all generators in the planning case TOGETHER
             if abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
-                print '------ Find a good match with generators at same location for EIA plant ' + str(EIA_index+1) 
+                print ('------ Find a good match with generators at same location for EIA plant ' + str(EIA_index+1) )
                 min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100
                 mapping_stt[an_EIA_ID] = 'Good match with generators at same location'
                 map_PF_gen_bus_num_list[an_EIA_ID] = PF_gen_bus_num_list
                 map_PF_gen_ID_list[an_EIA_ID] = PF_gen_ID_list
                 map_PF_gen_Pmax_list[an_EIA_ID] = PF_gen_Pmax_list
         if min_Pmax_diff[an_EIA_ID] == Pmax_per_tol:
-            print 'Can not find a good match with generators at same location for EIA plant ' + str(EIA_index+1) 
+            print ('Can not find a good match with generators at same location for EIA plant ' + str(EIA_index+1) )
     else:
-        print 'Can not find a good match with generators at same location for EIA plant ' + str(EIA_index+1) 
+        print ('Can not find a good match with generators at same location for EIA plant ' + str(EIA_index+1) )
 
 
 
 # Map using the nearby location mapping
-print '\n \n'
-print ' STEP 2: MAP USING THE NREL MAP AND PLANNING CASE USING NEARBY LOCATION'
+print ('\n \n')
+print (' STEP 2: MAP USING THE NREL MAP AND PLANNING CASE USING NEARBY LOCATION')
 for EIA_index in range(len(EIA_plant_names)):
-    print 'Processing EIA plant ' + str(EIA_index+1)
+    print ('Processing EIA plant ' + str(EIA_index+1))
     an_EIA_plant            = EIA_plant_names[EIA_index]
     an_EIA_ID               = EIA_plant_ID[EIA_index]
     an_EIA_Pmax             = EIA_plant_Pmax[EIA_index]
@@ -355,7 +353,7 @@ for EIA_index in range(len(EIA_plant_names)):
                 PF_gen_ID       = PF_gen_ID_list[gen_idx]
                 PF_gen_Pmax     = PF_gen_Pmax_list[gen_idx]
                 if abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
-                    print '------ Find a good ONE-TO_ONE match with generators at same location for EIA plant ' + str(EIA_index+1)
+                    print ('------ Find a good ONE-TO_ONE match with generators at same location for EIA plant ' + str(EIA_index+1))
                     min_Pmax_diff[an_EIA_ID] = abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100
                     mapping_stt[an_EIA_ID] = 'Good one-to-one match with generators at same location'
                     map_PF_gen_bus_num_list[an_EIA_ID] = [PF_gen_bus_num]
@@ -364,16 +362,16 @@ for EIA_index in range(len(EIA_plant_names)):
             
             # Approach 2: Consider all generators in the planning case TOGETHER
             if abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
-                print '------ Find a good match with generators at nearby location for EIA plant ' + str(EIA_index+1) 
+                print ('------ Find a good match with generators at nearby location for EIA plant ' + str(EIA_index+1)) 
                 min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100
                 mapping_stt[an_EIA_ID] = 'Good match with generators at nearby location'
                 map_PF_gen_bus_num_list[an_EIA_ID] = PF_gen_bus_num_list
                 map_PF_gen_ID_list[an_EIA_ID] = PF_gen_ID_list
                 map_PF_gen_Pmax_list[an_EIA_ID] = PF_gen_Pmax_list
         if min_Pmax_diff[an_EIA_ID] == Pmax_per_tol:
-            print 'Can not find a good match with generators at nearby location for EIA plant ' + str(EIA_index+1) 
+            print ('Can not find a good match with generators at nearby location for EIA plant ' + str(EIA_index+1) )
     else:
-        print 'Can not find a good match with generators at nearby location for EIA plant ' + str(EIA_index + 1) 
+        print ('Can not find a good match with generators at nearby location for EIA plant ' + str(EIA_index + 1) )
 
 
 
@@ -381,15 +379,15 @@ for EIA_index in range(len(EIA_plant_names)):
 
 
 # Mapping using the PCM model
-print '\n \n'
-print ' STEP 3: MAP USING THE NREL MAP, 2030 PCM, AND PLANNING CASE'
-PCM_df              = pandas.read_excel(PCM_file, sheet_name = BA_name)
+print ('\n \n')
+print (' STEP 3: MAP USING THE NREL MAP, 2030 PCM, AND PLANNING CASE')
+PCM_df              = pd.read_excel(PCM_file, sheet_name = BA_name)
 PCM_plant_busnum    = PCM_df['Bus Number'].to_list()
 PCM_plant_name      = PCM_df['Project Name'].to_list()
 PCM_plant_Pmax      = PCM_df['Capacity (MW)'].to_list()
 
 for EIA_index in range(len(EIA_plant_names)):
-    print '\nProcessing EIA plant ' + str(EIA_index + 1)
+    print ('\nProcessing EIA plant ' + str(EIA_index + 1))
     an_EIA_plant    = EIA_plant_names[EIA_index]
     an_EIA_ID       = EIA_plant_ID[EIA_index]
     an_EIA_Pmax     = EIA_plant_Pmax[EIA_index]
@@ -408,7 +406,7 @@ for EIA_index in range(len(EIA_plant_names)):
                 PF_gen_ID_list      = PF_case_gen_ID_num[idx_PF]
                 PF_gen_Pmax_list    = PF_case_gen_gen_Pmax[idx_PF]
                 if abs(an_EIA_Pmax - PF_gen_Pmax_list)/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
-                    print ' ---- Find a good match using PCM data for EIA plant ' + str(EIA_index+1) 
+                    print (' ---- Find a good match using PCM data for EIA plant ' + str(EIA_index+1) )
                     min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - PF_gen_Pmax_list)/float(an_EIA_Pmax) * 100
                     mapping_stt[an_EIA_ID] = 'Good match using PCM data'
                     map_PF_gen_bus_num_list[an_EIA_ID] = PF_gen_bus_num_list
@@ -416,6 +414,6 @@ for EIA_index in range(len(EIA_plant_names)):
                     map_PF_gen_Pmax_list[an_EIA_ID] = PF_gen_Pmax_list
                 
     if min_Pmax_diff[an_EIA_ID] == Pmax_per_tol:
-        print 'Can not find a good match using PCM data for EIA plant ' + str(EIA_index+1) 
+        print ('Can not find a good match using PCM data for EIA plant ' + str(EIA_index+1) )
 
         
