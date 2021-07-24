@@ -20,13 +20,13 @@ from geopy import distance, Point
 import numpy as np
 
 # Quan (PNNL)
-#import os, sys
-#import shutil
 import scipy
-# import  math, timeit
 import win32com.client
+import os
+from os import path
+from collections import Counter
 
-#import re
+
 
 from fuzzywuzzy import fuzz
 
@@ -57,12 +57,14 @@ def Remove_space(a_string):
 
 
 def Convert_String_to_List(a_string, a_type):
+    a_string = str(a_string)
     if (a_string[1]) != '[': # a single list
         if a_type == 'Bus Number':
             ans = map(int, a_string[1 : -1].split(','))
         elif a_type == 'Capacity':
             ans = map(float, a_string[1 : -1].split(','))
         elif a_type == 'ID':
+            a_string = a_string.replace('u', '')
             ans = map(str, a_string[1 : -1].split(', '))
             ans = [x[1 : -1] for x in ans]
         ans = [ans]
@@ -109,31 +111,53 @@ def fuzzy_match_plant_name(an_EIA_plant, a_PCM_plant_name):
         return True
     else:
         return False
-###############################################################################
+    
+    
+    
+    
+    
+    
+    
+    
+    
+##############################################################################
 
 # =============================================================================
 # INPUT - Quan (PNNL)
 # =============================================================================
+Dir_Path                = os.path.dirname(os.path.abspath(__file__))
+
 # PCM data
-PCM_file                = 'Data/2030_Summary_by_BA.xlsx'
-BA_name                 = 'AVA'
+PCM_file                = os.path.abspath(Dir_Path+'\..') + r'\Data\2030_Summary_by_BA.xlsx'
 
 # Power flow case
-PF_file                 = 'Data/WECC Apr 2019_20HS3ap-PWver21.pwb'
+PF_file                 = os.path.abspath(Dir_Path+'\..') + r'\'Data\WECC Apr 2019_20HS3ap-PWver21.pwb'
 
 # Mapping parameters
 Pmax_per_tol            = 10 # %
 
 
-Location_1 = 'Data/EIA860-2019ER-April2020-SolarPV-List-Updated.xlsx' 
-Location_2 = 'Data/Energy-Visuals-SS-Data.xlsx'
-Location_3 =  'Data/Energy-Visuals-Bus-Data.xlsx'
-Location_4 = 'Data/Energy-Visuals-Gen-Data.xlsx'
+
+# Solar
+Renewable_type = 'Solar'
+Location_1 = os.path.abspath(Dir_Path+'\..') + r'\Data\EIA860-2019ER-April2020-SolarPV-List-Updated.xlsx' 
+# WECC's BA list = {u'AVA', u'AZPS',  u'BANC', u'BPAT', u'CISO', u'EPE', u'IPCO', u'LDWP', u'NEVP', u'PACE', u'PACW',\
+# u'PGE', u'PNM', u'PSCO', u'PSEI', u'SRP', u'TEPC', u'WACM', u'WALC'}
+BA_name = 'BPAT'
+
+
+
+Location_2 = os.path.abspath(Dir_Path+'\..') + r'\Data\Energy-Visuals-SS-Data.xlsx'
+Location_3 = os.path.abspath(Dir_Path+'\..') + r'\Data\Energy-Visuals-Bus-Data.xlsx'
+Location_4 = os.path.abspath(Dir_Path+'\..') + r'\Data\Energy-Visuals-Gen-Data.xlsx'
 
 # Reading the Excel Files
-
 df_pv_plants = pd.read_excel(Location_1)
 df_pv_plants = df_pv_plants.drop_duplicates(subset = ['Plant ID', 'Plant State'], keep = 'first').reset_index(drop = True)
+
+#all_BA_names = df_pv_plants['Balancing Authority Code']
+#ba_pv_count = Counter(df_pv_plants['Balancing Authority Code'])
+df_pv_plants = df_pv_plants.loc[df_pv_plants['Balancing Authority Code']==BA_name]
 
 df_ss_data = pd.read_excel(Location_2)
 df_ss_data  = df_ss_data.loc[df_ss_data['# of Buses']!=0]
@@ -223,7 +247,13 @@ for idx in df_pv_plants.index:
     df_pv_plants.at[idx,'Other Gen IDs'] = gen_ids_all
     df_pv_plants.at[idx,'Other Gen Caps'] = gen_caps_all
     
-   
+
+#df_pv_plants.to_csv('Output.csv')
+    
+    
+    
+    
+    
 # =============================================================================
 # MAIN - Quan (PNNL)
 # =============================================================================
@@ -272,11 +302,15 @@ if (pw_flag):
     PF_case_gen_bus_num         = scipy.array(PF_case_gen_bus_num)
 
 
+
+
 """ Mapping directly between NREL data and the power flow case """
 print ('\n ------------- Start mapping ----------- \n')
 
 print (' STEP 1: MAP USING THE NREL MAP AND PLANNING CASE USING EXACT LOCATION')
 mapping_stt                 = {}
+for an_EIA_plant in EIA_plant_names:
+    mapping_stt[an_EIA_plant] = ['']
 map_PF_gen_bus_num_list     = {}
 map_PF_gen_ID_list          = {}
 map_PF_gen_Pmax_list        = {}
@@ -289,7 +323,7 @@ for EIA_index in range(len(EIA_plant_names)):
     an_EIA_ID               = EIA_plant_ID[EIA_index]
     an_EIA_Pmax             = EIA_plant_Pmax[EIA_index]
 
-    if len(exact_mapping_gen_bus_num[EIA_index]) != 2: # Empty bracket "[]"
+    if len(exact_mapping_gen_bus_num[EIA_index]) != 0: # Empty bracket "[]"
         min_Pmax_diff[an_EIA_ID] = Pmax_per_tol
         PF_gen_bus_num_full     = Convert_String_to_List(exact_mapping_gen_bus_num[EIA_index], 'Bus Number')
         PF_gen_ID_full          = Convert_String_to_List(exact_mapping_gen_ID[EIA_index], 'ID')
@@ -307,7 +341,7 @@ for EIA_index in range(len(EIA_plant_names)):
                 if abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
                     print ('------ Find a good ONE-TO_ONE match with generators at same location for EIA plant ' + str(EIA_index+1) )
                     min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100
-                    mapping_stt[an_EIA_ID] = 'Good one-to-one match with generators at same location'
+                    mapping_stt[an_EIA_plant] = ['Good one-to-one match with generators at same location']
                     map_PF_gen_bus_num_list[an_EIA_ID] = [PF_gen_bus_num]
                     map_PF_gen_ID_list[an_EIA_ID] = [PF_gen_ID ]
                     map_PF_gen_Pmax_list[an_EIA_ID] = [PF_gen_Pmax]
@@ -316,7 +350,7 @@ for EIA_index in range(len(EIA_plant_names)):
             if abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
                 print ('------ Find a good match with generators at same location for EIA plant ' + str(EIA_index+1) )
                 min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100
-                mapping_stt[an_EIA_ID] = 'Good match with generators at same location'
+                mapping_stt[an_EIA_plant] = ['Good match with generators at same location']
                 map_PF_gen_bus_num_list[an_EIA_ID] = PF_gen_bus_num_list
                 map_PF_gen_ID_list[an_EIA_ID] = PF_gen_ID_list
                 map_PF_gen_Pmax_list[an_EIA_ID] = PF_gen_Pmax_list
@@ -355,7 +389,7 @@ for EIA_index in range(len(EIA_plant_names)):
                 if abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
                     print ('------ Find a good ONE-TO_ONE match with generators at same location for EIA plant ' + str(EIA_index+1))
                     min_Pmax_diff[an_EIA_ID] = abs(an_EIA_Pmax - PF_gen_Pmax)/float(an_EIA_Pmax) * 100
-                    mapping_stt[an_EIA_ID] = 'Good one-to-one match with generators at same location'
+                    mapping_stt[an_EIA_plant] = ['Good one-to-one match with generators at same location']
                     map_PF_gen_bus_num_list[an_EIA_ID] = [PF_gen_bus_num]
                     map_PF_gen_ID_list[an_EIA_ID] = [PF_gen_ID ]
                     map_PF_gen_Pmax_list[an_EIA_ID] = [PF_gen_Pmax]
@@ -364,7 +398,7 @@ for EIA_index in range(len(EIA_plant_names)):
             if abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
                 print ('------ Find a good match with generators at nearby location for EIA plant ' + str(EIA_index+1)) 
                 min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - scipy.array(PF_gen_Pmax_list).sum(axis=0))/float(an_EIA_Pmax) * 100
-                mapping_stt[an_EIA_ID] = 'Good match with generators at nearby location'
+                mapping_stt[an_EIA_plant] = ['Good match with generators at nearby location']
                 map_PF_gen_bus_num_list[an_EIA_ID] = PF_gen_bus_num_list
                 map_PF_gen_ID_list[an_EIA_ID] = PF_gen_ID_list
                 map_PF_gen_Pmax_list[an_EIA_ID] = PF_gen_Pmax_list
@@ -372,9 +406,6 @@ for EIA_index in range(len(EIA_plant_names)):
             print ('Can not find a good match with generators at nearby location for EIA plant ' + str(EIA_index+1) )
     else:
         print ('Can not find a good match with generators at nearby location for EIA plant ' + str(EIA_index + 1) )
-
-
-
 
 
 
@@ -408,7 +439,7 @@ for EIA_index in range(len(EIA_plant_names)):
                 if abs(an_EIA_Pmax - PF_gen_Pmax_list)/float(an_EIA_Pmax) * 100 < min_Pmax_diff[an_EIA_ID]:
                     print (' ---- Find a good match using PCM data for EIA plant ' + str(EIA_index+1) )
                     min_Pmax_diff[an_EIA_ID]  = abs(an_EIA_Pmax - PF_gen_Pmax_list)/float(an_EIA_Pmax) * 100
-                    mapping_stt[an_EIA_ID] = 'Good match using PCM data'
+                    mapping_stt[an_EIA_plant] = ['Good match using PCM data']
                     map_PF_gen_bus_num_list[an_EIA_ID] = PF_gen_bus_num_list
                     map_PF_gen_ID_list[an_EIA_ID] = PF_gen_ID_list
                     map_PF_gen_Pmax_list[an_EIA_ID] = PF_gen_Pmax_list
@@ -416,4 +447,28 @@ for EIA_index in range(len(EIA_plant_names)):
     if min_Pmax_diff[an_EIA_ID] == Pmax_per_tol:
         print ('Can not find a good match using PCM data for EIA plant ' + str(EIA_index+1) )
 
-        
+
+
+output_path = os.path.abspath(Dir_Path+'\..') + r'\Output'
+if not path.exists(output_path):
+    os.makedirs(output_path)
+mapping_df = pd.DataFrame.from_dict(mapping_stt, orient='index', columns=['Mapping status'])
+mapping_df.to_csv(output_path + '\\' + BA_name + '_' + Renewable_type + '_Mapping_Output.csv', index_label='EIA generator names')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
